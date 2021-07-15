@@ -10,7 +10,7 @@ import Data.List.NonEmpty (length)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (power) as M
 import Data.Ord (abs)
-import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IntervalClassOf, class ParseNotation, class ParsePitchNotation, class ShowPitch, class ToMidi, class ToMidiPitch, Pitch(..), chromaticSemitone, direction, down, iabs, ic, toMidi)
+import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IntervalClassOf, class ParseNotation, class ParsePitchNotation, class ShowPitch, class ToMidi, class ToMidiPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, toMidi, (+^), (^*), (^-^))
 import Data.Pitches.Internal (parseInt, parseInt')
 import Data.String as S
 import Test.QuickCheck (class Arbitrary, arbitrary)
@@ -30,23 +30,23 @@ isPerfect = case _ of
   _ -> false
 
 accstr :: Int -> String -> String -> String
-accstr n u d
+accstr n lu ld
   | n == 0 = ""
-  | n > 0 = M.power u n
-  | otherwise = M.power d (abs n)
+  | n > 0 = M.power lu n
+  | otherwise = M.power ld (abs n)
 
 qualpf :: Int -> String -> String -> String -> String
-qualpf n a p d
-  | n > 0 = M.power a n
-  | n == 0 = p
-  | otherwise = M.power d (abs n)
+qualpf n la lp ld
+  | n > 0 = M.power la n
+  | n == 0 = lp
+  | otherwise = M.power ld (abs n)
 
 qualimpf :: Int -> String -> String -> String -> String -> String
-qualimpf n a mj mn d
-  | n > 0 = M.power a n
-  | n == 0 = mj
-  | n == -1 = mn
-  | otherwise = M.power d ((-n) - 1)
+qualimpf n la lmj lmn ld
+  | n > 0 = M.power la n
+  | n == 0 = lmj
+  | n == -1 = lmn
+  | otherwise = M.power ld ((-n) - 1)
 
 fifths2degree :: Int -> Int
 fifths2degree fifths = (fifths * 4) `mod` 7
@@ -90,6 +90,27 @@ spelledDiaChrom dia chrom = diaPart <> chromPart
 
   chromPart = chromaticSemitone `G.power` (chrom - 2 * dia)
 
+second :: ImperfectInterval SInterval
+second = Impf (spelled 2 (-1) ^-^ _)
+
+third :: ImperfectInterval SInterval
+third = Impf (spelled 4 (-2) ^-^ _)
+
+fourth :: SInterval
+fourth = spelled (-1) 1
+
+tritone :: SInterval
+tritone = aug fourth
+
+fifth :: SInterval
+fifth = spelled 1 0
+
+sixth :: ImperfectInterval SInterval
+sixth = Impf (spelled 3 (-1) ^-^ _)
+
+seventh :: ImperfectInterval SInterval
+seventh = Impf (spelled 5 (-2) ^-^ _)
+
 -- TODO: interval special values (second, third, etc)
 --
 instance spelledSInterval :: Spelled SInterval where
@@ -104,7 +125,7 @@ instance spelledSInterval :: Spelled SInterval where
   alteration i = (fifths (iabs i) + 1) `div` 7
 
 instance semigroupSInterval :: Semigroup SInterval where
-  append (SInterval a) (SInterval b) = spelled (a.fifths + b.fifths) (a.octaves + b.octaves)
+  append (SInterval i1) (SInterval i2) = spelled (i1.fifths + i2.fifths) (i1.octaves + i2.octaves)
 
 instance monoidSInterval :: Monoid SInterval where
   mempty = spelled 0 0
@@ -126,7 +147,7 @@ instance hasintervalclassSInterval :: HasIntervalClass SInterval SIC where
   ic (SInterval i) = sic i.fifths
 
 instance intervalclassofSInterval :: IntervalClassOf SIC SInterval where
-  emb (SIC f) = spelled f (negate $ (f * 4) `div` 7)
+  emb (SIC fs) = spelled fs (negate $ (fs * 4) `div` 7)
 
 instance diatonicSInterval :: Diatonic SInterval where
   isStep i = abs (diasteps i) < 2
@@ -172,30 +193,50 @@ instance arbitrarySIC :: Arbitrary SIC where
 sic :: Int -> SIC
 sic = SIC
 
--- TODO: specific value (second', third', etc.)
+second' :: ImperfectInterval SIC
+second' = Impf (sic 2 ^-^ _)
+
+third' :: ImperfectInterval SIC
+third' = Impf (sic 4 ^-^ _)
+
+fourth' :: SIC
+fourth' = sic (-1)
+
+tritone' :: SIC
+tritone' = sic 6
+
+fifth' :: SIC
+fifth' = sic 1
+
+sixth' :: ImperfectInterval SIC
+sixth' = Impf (sic 3 ^-^ _)
+
+seventh' :: ImperfectInterval SIC
+seventh' = Impf (sic 5 ^-^ _)
+
 instance spelledSIC :: Spelled SIC where
-  fifths (SIC f) = f
+  fifths (SIC fs) = fs
   octaves _ = 0
   internalOctaves _ = 0
-  degree (SIC f) = fifths2degree f
-  generic (SIC f) = fifths2degree f
-  diasteps (SIC f) = fifths2degree f
-  alteration (SIC f) = (f + 1) `div` 7
+  degree (SIC fs) = fifths2degree fs
+  generic (SIC fs) = fifths2degree fs
+  diasteps (SIC fs) = fifths2degree fs
+  alteration (SIC fs) = (fs + 1) `div` 7
 
 instance semigroupSIC :: Semigroup SIC where
-  append (SIC a) (SIC b) = sic $ a + b
+  append (SIC i1) (SIC i2) = sic $ i1 + i2
 
 instance monoidSIC :: Monoid SIC where
   mempty = sic 0
 
 instance groupSIC :: Group SIC where
-  ginverse (SIC f) = sic (-f)
+  ginverse (SIC fs) = sic (-fs)
 
 instance intervalSIC :: Interval SIC where
   octave = sic 0
-  direction i = if d == 0 then EQ else if d < 4 then GT else LT
+  direction i = if dia == 0 then EQ else if dia < 4 then GT else LT
     where
-    d = diasteps i
+    dia = diasteps i
   iabs i
     | direction i == LT = down i
     | otherwise = i
@@ -212,7 +253,7 @@ instance chromaticSIC :: Chromatic SIC where
   chromaticSemitone = sic 7
 
 instance tomidiSIC :: ToMidi SIC where
-  toMidi (SIC f) = (f * 7) `mod` 12
+  toMidi (SIC fs) = (fs * 7) `mod` 12
 
 instance showSIC :: Show SIC where
   show i = qual <> show (dia + 1)
@@ -251,10 +292,43 @@ type SPC
   = Pitch SIC
 
 spelledp :: Int -> Int -> SPitch
-spelledp f o = Pitch $ spelled f o
+spelledp fs os = Pitch $ spelled fs os
 
-spc :: Int -> SPC
-spc f = Pitch $ sic f
+newtype Accidental
+  = Acc Int
+
+flt :: Accidental
+flt = Acc (-1)
+
+shp :: Accidental
+shp = Acc 1
+
+nat :: Accidental
+nat = Acc 0
+
+toSpelled :: Int -> Int -> Accidental -> Int -> SPitch
+toSpelled fs os (Acc acc) oct = spelledp fs (os + oct) +^ (chromaticSemitone ^* acc)
+
+c :: Accidental -> Int -> SPitch
+c = toSpelled 0 0
+
+d :: Accidental -> Int -> SPitch
+d = toSpelled 2 (-1)
+
+e :: Accidental -> Int -> SPitch
+e = toSpelled 4 (-2)
+
+f :: Accidental -> Int -> SPitch
+f = toSpelled (-1) 1
+
+g :: Accidental -> Int -> SPitch
+g = toSpelled 1 0
+
+a :: Accidental -> Int -> SPitch
+a = toSpelled 3 (-1)
+
+b :: Accidental -> Int -> SPitch
+b = toSpelled 5 (-2)
 
 instance showpitchSInterval :: ShowPitch SInterval where
   showPitch i = letter p <> accs <> show (octaves p)
@@ -263,6 +337,36 @@ instance showpitchSInterval :: ShowPitch SInterval where
 
     accs = accstr (alteration p) "♯" "♭"
 
+instance tomidiSPitch :: ToMidiPitch SInterval where
+  toMidiPitch i = toMidi i + 12
+
+spc :: Int -> SPC
+spc fs = Pitch $ sic fs
+
+toSPC :: Int -> Accidental -> SPC
+toSPC fs (Acc acc) = spc fs +^ (chromaticSemitone ^* acc)
+
+c' :: Accidental -> SPC
+c' = toSPC 0
+
+d' :: Accidental -> SPC
+d' = toSPC 2
+
+e' :: Accidental -> SPC
+e' = toSPC 4
+
+f' :: Accidental -> SPC
+f' = toSPC (-1)
+
+g' :: Accidental -> SPC
+g' = toSPC 1
+
+a' :: Accidental -> SPC
+a' = toSPC 3
+
+b' :: Accidental -> SPC
+b' = toSPC 5
+
 instance showpitchSIC :: ShowPitch SIC where
   showPitch i = letter p <> accs
     where
@@ -270,16 +374,9 @@ instance showpitchSIC :: ShowPitch SIC where
 
     accs = accstr (alteration p) "♯" "♭"
 
-instance tomidiSPitch :: ToMidiPitch SInterval where
-  toMidiPitch i = toMidi i + 12
-
 instance tomidiSPC :: ToMidiPitch SIC where
   toMidiPitch i = toMidi i + 60
 
--- instance showSPC :: Show (Pitch SIC) where
---   show p = letter p <> accs
---     where
---     accs = accstr (alteration p) '♯' '♭'
 -------------
 -- parsing --
 -------------
@@ -314,11 +411,11 @@ instance parsenotationSInterval :: ParseNotation SInterval where
     where
     parser = do
       sign <- P.option '+' $ P.char '-'
-      f <- parseDia
+      fs <- parseDia
       _ <- P.char ':'
-      o <- parseInt
+      os <- parseInt
       let
-        i = SInterval { fifths: f, octaves: o - ((f * 4) `div` 7) }
+        i = SInterval { fifths: fs, octaves: os - ((fs * 4) `div` 7) }
       pure $ if sign == '-' then down i else i
 
 instance parsenotationSIC :: ParseNotation SIC where
@@ -350,9 +447,9 @@ instance parsenotationSPitch :: ParsePitchNotation SInterval where
   parsePitchNotation str = hush $ P.runParser parser str
     where
     parser = do
-      f <- parseName
-      oct <- parseInt
-      pure $ spelledp f (oct - ((f * 4) `div` 7))
+      fs <- parseName
+      os <- parseInt
+      pure $ spelledp fs (os - ((fs * 4) `div` 7))
 
 instance parsenotationSPC :: ParsePitchNotation SIC where
   parsePitchNotation str = hush $ P.runParser (spc <$> parseName) str

@@ -4,11 +4,11 @@ import Data.Pitches
 import Prelude hiding (degree)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
-import Effect.Aff (Aff, launchAff_)
+import Effect.Aff (launchAff_)
 import Effect.Class.Console (log)
 import Partial.Unsafe (unsafePartial)
-import Test.QuickCheck (class Arbitrary, arbitrary, (===))
-import Test.Spec (SpecT, describe, it)
+import Test.QuickCheck ((===))
+import Test.Spec (describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 import Test.Spec.Reporter.Console (consoleReporter)
@@ -107,31 +107,31 @@ testSpelled =
       spc 3 `shouldBe` Pitch (SIC 3)
     it "named intervals" do
       unison `shouldBe` spelled 0 0
-      -- minor second `shouldBe` spelled (-5) 3
-      -- major second `shouldBe` spelled 2 (-1)
-      -- minor third `shouldBe` spelled (-3) 2
-      -- major third `shouldBe` spelled 4 (-2)
-      -- fourth `shouldBe` spelled (-1) 1
-      -- tritone `shouldBe` spelled 6 (-3)
-      -- fifth `shouldBe` spelled 1 0
-      -- minor sixth `shouldBe` spelled (-4) 3
-      -- major sixth `shouldBe` spelled 3 (-1)
-      -- minor seventh `shouldBe` spelled (-2) 2
-      -- major seventh `shouldBe` spelled 5 (-2)
+      minor second `shouldBe` spelled (-5) 3
+      major second `shouldBe` spelled 2 (-1)
+      minor third `shouldBe` spelled (-3) 2
+      major third `shouldBe` spelled 4 (-2)
+      fourth `shouldBe` spelled (-1) 1
+      tritone `shouldBe` spelled 6 (-3)
+      fifth `shouldBe` spelled 1 0
+      minor sixth `shouldBe` spelled (-4) 3
+      major sixth `shouldBe` spelled 3 (-1)
+      minor seventh `shouldBe` spelled (-2) 2
+      major seventh `shouldBe` spelled 5 (-2)
       octave `shouldBe` spelled 0 1
       chromaticSemitone `shouldBe` spelled 7 (-4)
       unison `shouldBe` sic 0
-      -- minor second' `shouldBe` sic (-5)
-      -- major second' `shouldBe` sic 2
-      -- minor third' `shouldBe` sic (-3)
-      -- major third' `shouldBe` sic 4
-      -- fourth' `shouldBe` sic (-1)
-      -- tritone' `shouldBe` sic 6
-      -- fifth' `shouldBe` sic 1
-      -- minor sixth' `shouldBe` sic (-4)
-      -- major sixth' `shouldBe` sic 3
-      -- minor seventh' `shouldBe` sic (-2)
-      -- major seventh' `shouldBe` sic 5
+      minor second' `shouldBe` sic (-5)
+      major second' `shouldBe` sic 2
+      minor third' `shouldBe` sic (-3)
+      major third' `shouldBe` sic 4
+      fourth' `shouldBe` sic (-1)
+      tritone' `shouldBe` sic 6
+      fifth' `shouldBe` sic 1
+      minor sixth' `shouldBe` sic (-4)
+      major sixth' `shouldBe` sic 3
+      minor seventh' `shouldBe` sic (-2)
+      major seventh' `shouldBe` sic 5
       octave `shouldBe` sic 0
       chromaticSemitone `shouldBe` sic 7
     it "string notation parsing" do
