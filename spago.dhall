@@ -8,7 +8,6 @@ You can edit this file as you like.
   , "effect"
   , "group"
   , "partial"
-  , "psci-support"
   , "quickcheck"
   , "spec"
   , "spec-quickcheck"
