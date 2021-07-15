@@ -1,11 +1,11 @@
-module Data.Pitches.Internal where
+module Data.Pitches.Internal (parseInt, parseInt') where
 
 import Prelude
 import Data.Char as C
 import Data.Foldable (foldl)
-import Text.Parsing.StringParser as P
-import Text.Parsing.StringParser.CodePoints as P
-import Text.Parsing.StringParser.Combinators as P
+import Text.Parsing.StringParser (Parser) as P
+import Text.Parsing.StringParser.CodePoints (anyDigit, char) as P
+import Text.Parsing.StringParser.Combinators (many1, option) as P
 
 ascii0 :: Int
 ascii0 = C.toCharCode '0'
