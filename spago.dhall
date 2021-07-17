@@ -9,6 +9,7 @@ You can edit this file as you like.
   , "group"
   , "partial"
   , "quickcheck"
+  , "simple-json"
   , "spec"
   , "spec-quickcheck"
   , "string-parsers"

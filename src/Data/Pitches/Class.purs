@@ -47,12 +47,16 @@ module Data.Pitches.Class
   , parsePitchNotation
   , class ToMidiPitch
   , toMidiPitch
+  , class WriteForeignPitch
+  , writeImplPitch
   ) where
 
 import Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Group (class Group, ginverse, power)
 import Data.Maybe (Maybe)
+import Foreign (Foreign)
+import Simple.JSON as JSON
 
 ---------------
 -- Intervals --
@@ -167,6 +171,8 @@ infixl 6 pminusi as -^
 pc :: forall i ic. (HasIntervalClass i ic) => Pitch i -> Pitch ic
 pc = map ic
 
+-- helper classes
+-- --------------
 class ShowPitch i where
   showPitch :: i -> String
 
@@ -184,3 +190,9 @@ class ParsePitchNotation a where
 
 instance parsenotationPitch :: ParsePitchNotation a => ParseNotation (Pitch a) where
   parseNotation = parsePitchNotation
+
+class WriteForeignPitch i where
+  writeImplPitch :: i -> Foreign
+
+instance writeForeignPitch :: (WriteForeignPitch i) => JSON.WriteForeign (Pitch i) where
+  writeImpl (Pitch i) = writeImplPitch i

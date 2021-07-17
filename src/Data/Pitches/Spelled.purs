@@ -63,9 +63,10 @@ import Data.List.NonEmpty (length)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (power) as M
 import Data.Ord (abs)
-import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IntervalClassOf, class ParseNotation, class ParsePitchNotation, class ShowPitch, class ToMidi, class ToMidiPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, toMidi, (+^), (^*), (^-^))
+import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IntervalClassOf, class ParseNotation, class ParsePitchNotation, class ShowPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, toMidi, (+^), (^*), (^-^))
 import Data.Pitches.Internal (parseInt, parseInt')
 import Data.String as S
+import Simple.JSON (class WriteForeign, writeImpl)
 import Test.QuickCheck (class Arbitrary, arbitrary)
 import Text.Parsing.StringParser (Parser, fail, runParser) as P
 import Text.Parsing.StringParser.CodePoints (char, oneOf) as P
@@ -230,6 +231,9 @@ instance showSInterval :: Show SInterval where
 
       octs = show $ octaves i
 
+instance writeForeignSInterval :: WriteForeign SInterval where
+  writeImpl = writeImpl <<< show
+
 ---------
 -- SIC --
 ---------
@@ -321,6 +325,9 @@ instance showSIC :: Show SIC where
       else
         qualimpf alt "a" "M" "m" "d"
 
+instance writeForeignSIC :: WriteForeign SIC where
+  writeImpl = writeImpl <<< show
+
 -- spelled pitch
 -- -------------
 instance spelledPitch :: (Spelled i, HasIntervalClass i ic, Spelled ic) => Spelled (Pitch i) where
@@ -390,6 +397,9 @@ instance showpitchSInterval :: ShowPitch SInterval where
 
     accs = accstr (alteration p) "♯" "♭"
 
+instance writeForeignSPitch :: WriteForeignPitch SInterval where
+  writeImplPitch i = writeImpl $ show i
+
 instance tomidiSPitch :: ToMidiPitch SInterval where
   toMidiPitch i = toMidi i + 12
 
@@ -426,6 +436,9 @@ instance showpitchSIC :: ShowPitch SIC where
     p = Pitch i
 
     accs = accstr (alteration p) "♯" "♭"
+
+instance writeForeignSPC :: WriteForeignPitch SIC where
+  writeImplPitch i = writeImpl $ show i
 
 instance tomidiSPC :: ToMidiPitch SIC where
   toMidiPitch i = toMidi i + 60
