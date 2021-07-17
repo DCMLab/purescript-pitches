@@ -398,7 +398,7 @@ instance showpitchSInterval :: ShowPitch SInterval where
     accs = accstr (alteration p) "♯" "♭"
 
 instance writeForeignSPitch :: WriteForeignPitch SInterval where
-  writeImplPitch i = writeImpl $ show i
+  writeImplPitch i = writeImpl $ show $ Pitch i
 
 instance tomidiSPitch :: ToMidiPitch SInterval where
   toMidiPitch i = toMidi i + 12
@@ -438,7 +438,7 @@ instance showpitchSIC :: ShowPitch SIC where
     accs = accstr (alteration p) "♯" "♭"
 
 instance writeForeignSPC :: WriteForeignPitch SIC where
-  writeImplPitch i = writeImpl $ show i
+  writeImplPitch i = writeImpl $ show $ Pitch i
 
 instance tomidiSPC :: ToMidiPitch SIC where
   toMidiPitch i = toMidi i + 60
