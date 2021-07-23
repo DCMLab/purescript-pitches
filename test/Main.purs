@@ -7,6 +7,7 @@ import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class.Console (log)
 import Partial.Unsafe (unsafePartial)
+import Simple.JSON (readJSON_, writeJSON)
 import Test.QuickCheck ((===))
 import Test.Spec (describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -55,9 +56,18 @@ testSIntervalProps =
         $ quickCheck \i1 i2 -> i1 ^+^ i2 ^-^ i2 === (i1 :: SInterval)
       it "returns unison for i ^-^ i"
         $ quickCheck \i -> (i :: SInterval) ^-^ i === unison
-    describe "notation" $ it "returns input on parseN <<< showN"
-      $ quickCheck \i -> parseNotation (showNotation i) === Just (i :: SInterval)
+    describe "notation" do
+      it "survives a notation roundtrip (intervals)"
+        $ quickCheck \i -> parseNotation (showNotation i) === Just (i :: SInterval)
+      it "survives a notation roundtrip (pitches)"
+        $ quickCheck \p -> parseNotation (showNotation p) === Just (p :: SPitch)
+    describe "JSON" do
+      it "survives a JSON roundtrip (intervals)"
+        $ quickCheck \i -> readJSON_ (writeJSON i) === Just (i :: SInterval)
+      it "survives a JSON roundtrip (pitches)"
+        $ quickCheck \p -> readJSON_ (writeJSON p) === Just (p :: SPitch)
 
+--    describe "JSON" $ it "returns input on readJSON <<< writeJSON"
 testSICProps =
   describe "SIC properties" do
     describe "octave" do
@@ -82,9 +92,16 @@ testSICProps =
         direction (unison :: SIC) `shouldBe` EQ
         direction (aug unison :: SIC) `shouldBe` EQ
         direction (dim unison :: SIC) `shouldBe` EQ
-    describe "notation" $ it "returns input on parseN <<< showN"
-      $ quickCheck \i ->
-          parseNotation (showNotation i) === Just (i :: SIC)
+    describe "notation" do
+      it "survives a notation roundtrip (intervals)"
+        $ quickCheck \i -> parseNotation (showNotation i) === Just (i :: SIC)
+      it "survives a notation roundtrip (pitches)"
+        $ quickCheck \p -> parseNotation (showNotation p) === Just (p :: SPC)
+    describe "JSON" do
+      it "survives a JSON roundtrip (intervals)"
+        $ quickCheck \i -> readJSON_ (writeJSON i) === Just (i :: SIC)
+      it "survives a JSON roundtrip (pitches)"
+        $ quickCheck \p -> readJSON_ (writeJSON p) === Just (p :: SPC)
 
 showNotation :: forall a. Show a => a -> String
 showNotation = show

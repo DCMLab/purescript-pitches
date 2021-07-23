@@ -49,14 +49,17 @@ module Data.Pitches.Class
   , toMidiPitch
   , class WriteForeignPitch
   , writeImplPitch
+  , class ReadForeignPitch
+  , readImplPitch
   ) where
 
 import Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Group (class Group, ginverse, power)
 import Data.Maybe (Maybe)
-import Foreign (Foreign)
+import Foreign (Foreign, F)
 import Simple.JSON as JSON
+import Test.QuickCheck (class Arbitrary)
 
 ---------------
 -- Intervals --
@@ -137,6 +140,8 @@ derive newtype instance eqPitch :: (Eq a) => Eq (Pitch a)
 
 derive newtype instance ordPitch :: (Ord a) => Ord (Pitch a)
 
+derive newtype instance arbitraryPitch :: (Arbitrary a) => Arbitrary (Pitch a)
+
 derive instance functorPitch :: Functor Pitch
 
 derive instance genericPitch :: Generic (Pitch a) _
@@ -196,3 +201,9 @@ class WriteForeignPitch i where
 
 instance writeForeignPitch :: (WriteForeignPitch i) => JSON.WriteForeign (Pitch i) where
   writeImpl (Pitch i) = writeImplPitch i
+
+class ReadForeignPitch i where
+  readImplPitch :: Foreign -> F i
+
+instance readForeignPitch :: (ReadForeignPitch i) => JSON.ReadForeign (Pitch i) where
+  readImpl f = Pitch <$> readImplPitch f

@@ -63,10 +63,10 @@ import Data.List.NonEmpty (length)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (power) as M
 import Data.Ord (abs)
-import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IntervalClassOf, class ParseNotation, class ParsePitchNotation, class ShowPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, toMidi, (+^), (^*), (^-^))
-import Data.Pitches.Internal (parseInt, parseInt')
+import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IntervalClassOf, class ParseNotation, class ParsePitchNotation, class ReadForeignPitch, class ShowPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, toInterval, toMidi, (+^), (^*), (^-^))
+import Data.Pitches.Internal (parseInt, parseInt', readJSONviaParse)
 import Data.String as S
-import Simple.JSON (class WriteForeign, writeImpl)
+import Simple.JSON (class ReadForeign, class WriteForeign, writeImpl)
 import Test.QuickCheck (class Arbitrary, arbitrary)
 import Text.Parsing.StringParser (Parser, fail, runParser) as P
 import Text.Parsing.StringParser.CodePoints (char, oneOf) as P
@@ -234,6 +234,9 @@ instance showSInterval :: Show SInterval where
 instance writeForeignSInterval :: WriteForeign SInterval where
   writeImpl = writeImpl <<< show
 
+instance readForeignSInterval :: ReadForeign SInterval where
+  readImpl = readJSONviaParse "spelled interval"
+
 ---------
 -- SIC --
 ---------
@@ -328,6 +331,9 @@ instance showSIC :: Show SIC where
 instance writeForeignSIC :: WriteForeign SIC where
   writeImpl = writeImpl <<< show
 
+instance readForeignSIC :: ReadForeign SIC where
+  readImpl input = readJSONviaParse "spelled interval class" input
+
 -- spelled pitch
 -- -------------
 instance spelledPitch :: (Spelled i, HasIntervalClass i ic, Spelled ic) => Spelled (Pitch i) where
@@ -400,6 +406,9 @@ instance showpitchSInterval :: ShowPitch SInterval where
 instance writeForeignSPitch :: WriteForeignPitch SInterval where
   writeImplPitch i = writeImpl $ show $ Pitch i
 
+instance readForeignSPitch :: ReadForeignPitch SInterval where
+  readImplPitch input = toInterval <$> readJSONviaParse "spelled pitch" input
+
 instance tomidiSPitch :: ToMidiPitch SInterval where
   toMidiPitch i = toMidi i + 12
 
@@ -439,6 +448,9 @@ instance showpitchSIC :: ShowPitch SIC where
 
 instance writeForeignSPC :: WriteForeignPitch SIC where
   writeImplPitch i = writeImpl $ show $ Pitch i
+
+instance readForeignSPC :: ReadForeignPitch SIC where
+  readImplPitch input = toInterval <$> readJSONviaParse "spelled pitch class" input
 
 instance tomidiSPC :: ToMidiPitch SIC where
   toMidiPitch i = toMidi i + 60

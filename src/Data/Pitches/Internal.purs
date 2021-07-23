@@ -1,8 +1,12 @@
-module Data.Pitches.Internal (parseInt, parseInt') where
+module Data.Pitches.Internal (parseInt, parseInt', readJSONviaParse) where
 
 import Prelude
 import Data.Char as C
 import Data.Foldable (foldl)
+import Data.Maybe (Maybe(..))
+import Data.Pitches.Class (class ParseNotation, Pitch(..), parseNotation)
+import Foreign as F
+import Simple.JSON (readImpl)
 import Text.Parsing.StringParser (Parser) as P
 import Text.Parsing.StringParser.CodePoints (anyDigit, char) as P
 import Text.Parsing.StringParser.Combinators (many1, option) as P
@@ -25,3 +29,10 @@ parseInt' :: P.Parser Int
 parseInt' = do
   dgts <- P.many1 P.anyDigit
   pure $ foldl (\acc d -> 10 * acc + digit d) 0 dgts
+
+readJSONviaParse :: forall a. ParseNotation a => String -> F.Foreign -> F.F a
+readJSONviaParse typ input = do
+  str <- readImpl input
+  case parseNotation str of
+    Nothing -> F.fail $ F.ForeignError $ "Cannot parse " <> str <> " as " <> typ <> "!"
+    Just i -> pure i
