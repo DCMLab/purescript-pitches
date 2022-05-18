@@ -68,9 +68,9 @@ import Data.Pitches.Internal (parseInt, parseInt', readJSONviaParse)
 import Data.String as S
 import Simple.JSON (class ReadForeign, class WriteForeign, writeImpl)
 import Test.QuickCheck (class Arbitrary, arbitrary)
-import Text.Parsing.StringParser (Parser, fail, runParser) as P
-import Text.Parsing.StringParser.CodePoints (char, oneOf) as P
-import Text.Parsing.StringParser.Combinators (many1, option) as P
+import StringParser (Parser, fail, runParser) as P
+import StringParser.CodePoints (char, oneOf) as P
+import StringParser.Combinators (many1, option) as P
 
 -- Spelled Intervals
 -- -----------------

@@ -7,9 +7,9 @@ import Data.Maybe (Maybe(..))
 import Data.Pitches.Class (class ParseNotation, Pitch(..), parseNotation)
 import Foreign as F
 import Simple.JSON (readImpl)
-import Text.Parsing.StringParser (Parser) as P
-import Text.Parsing.StringParser.CodePoints (anyDigit, char) as P
-import Text.Parsing.StringParser.Combinators (many1, option) as P
+import StringParser (Parser) as P
+import StringParser.CodePoints (anyDigit, char) as P
+import StringParser.Combinators (many1, option) as P
 
 ascii0 :: Int
 ascii0 = C.toCharCode '0'
