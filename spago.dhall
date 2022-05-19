@@ -20,7 +20,7 @@ You can edit this file as you like.
   , "simple-json"
   , "spec"
   , "spec-quickcheck"
-  , "string-parsers"
+  , "string-parsers" -- ^v9.0.0
   , "strings"
   ]
 , packages = ./packages.dhall

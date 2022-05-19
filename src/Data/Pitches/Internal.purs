@@ -4,7 +4,7 @@ import Prelude
 import Data.Char as C
 import Data.Foldable (foldl)
 import Data.Maybe (Maybe(..))
-import Data.Pitches.Class (class ParseNotation, Pitch(..), parseNotation)
+import Data.Pitches.Class (class ParseNotation, parseNotation)
 import Foreign as F
 import Simple.JSON (readImpl)
 import StringParser (Parser) as P
