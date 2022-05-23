@@ -6,7 +6,7 @@
 -- | This main class is complemented by other type classes that provide optional functionality,
 -- | such as converting to and from interval classes (`HasIntervalClass` and `IntervalClassOf`),
 -- | distinguishing special intervals (`Diatonic` and `Chromatic`),
--- | or converting to and MIDI as well as to and from a standardized text notation (`ToMidi`, `Show`, `ParseNotation`).
+-- | or converting to and MIDI as well as to and from a standardized text notation (`ToMidi` and `Notation`).
 -- |
 -- | Pitches are represented as intervals that are interpreted relative to a type-specific reference point,
 -- | similar to how points can be represented as a vector from an origin.
@@ -41,8 +41,9 @@ module Data.Pitches.Class
   , chromaticSemitone
   , class ToMidi
   , toMidi
-  , class ParseNotation
+  , class Notation
   , parseNotation
+  , showNotation
   , ImperfectInterval(..)
   , minor
   , major
@@ -59,10 +60,9 @@ module Data.Pitches.Class
   , pplusi
   , (-^)
   , pminusi
-  , class ShowPitch
-  , showPitch
-  , class ParsePitchNotation
+  , class NotationPitch
   , parsePitchNotation
+  , showPitchNotation
   , class ToMidiPitch
   , toMidiPitch
   , class WriteForeignPitch
@@ -122,16 +122,16 @@ class ToMidi i where
   toMidi :: i -> Int
 
 -- | A class for types (intervals and pitches) that support a string notation.
--- | This notation is produced through the types `Show` instance and can be parsed using this class.
--- | For `Pitch a`, the implementation of `Show (Pitch a)` and `ParseNotation (Pitch a)`
--- | are deferred to `ShowPitch a` and `ParseNotationPitch a`, respectively,
+-- | For `Pitch a`, the implementation of `Notation (Pitch a)` is deferred to `NotationPitch a`
 -- | to support specific pitch notation for each underlying interval type.
-class ParseNotation a where
-  -- | Parse a string representation of an object.
-  -- | The same notation (or a normalized form of it) should be emitted by the type's `Show` instance.
-  -- | For the provided interval and pitch types, the string representation is
-  -- | [standardized](https://github.com/DCMLab/Pitches.jl/#implemented-pitch-and-interval-types).
+-- | Implementations must satisfy the law `parseNotation (showNotation i) == Just i`.
+-- | For the provided interval and pitch types, the string representation is standardized
+-- | to be compatible with libraries for other languages.
+class Notation a where
+  -- | Parse a string notation of an object.
   parseNotation :: String -> Maybe a
+  -- | Convert an object into a string notation.
+  showNotation :: a -> String
 
 -- | The perfect unison interval.
 -- | Defined as the neutral element wrt. interval addition (`mempty`).
@@ -275,13 +275,19 @@ pc = map ic
 
 -- helper classes
 -- --------------
--- | A helper class for showing pitches. Used by the `Show` instance of `Pitch`.
-class ShowPitch i where
-  -- | Return the string representation of a pitch with the given internal interval.
-  showPitch :: i -> String
+-- | A helper class for pitch notation. Used by the `Notation` instance of `Pitch`.
+class NotationPitch i where
+  -- | Parse the string representation of a pitch and return the corresponding internal interval.
+  parsePitchNotation :: String -> Maybe i
+  -- | Return the string notation of a pitch with the given internal interval.
+  showPitchNotation :: i -> String
 
-instance showPitchInst :: ShowPitch a => Show (Pitch a) where
-  show (Pitch i) = showPitch i
+instance showPitchInst :: NotationPitch i => Show (Pitch i) where
+  show (Pitch i) = showPitchNotation i
+
+instance notationPitch :: NotationPitch i => Notation (Pitch i) where
+  parseNotation = parsePitchNotation >>> map Pitch
+  showNotation (Pitch i) = showPitchNotation i
 
 -- | A helper class for converting pitches to midi. Used by the `ToMidi` instance of `Pitch`.
 class ToMidiPitch i where
@@ -291,14 +297,12 @@ class ToMidiPitch i where
 instance tomidiPitch :: ToMidiPitch a => ToMidi (Pitch a) where
   toMidi (Pitch i) = toMidiPitch i
 
--- | A helper class for parsing pitches. Used by the `ParseNotation` instance of `Pitch`.
-class ParsePitchNotation a where
-  -- | Parse the string representation of a pitch with the internal interval type `a`.
-  parsePitchNotation :: String -> Maybe (Pitch a)
-
-instance parsenotationPitch :: ParsePitchNotation a => ParseNotation (Pitch a) where
-  parseNotation = parsePitchNotation
-
+-- -- | A helper class for parsing pitches. Used by the `ParseNotation` instance of `Pitch`.
+-- class ParsePitchNotation a where
+--   -- | Parse the string representation of a pitch with the internal interval type `a`.
+--   parsePitchNotation :: String -> Maybe (Pitch a)
+-- instance parsenotationPitch :: ParsePitchNotation a => ParseNotation (Pitch a) where
+--   parseNotation = parsePitchNotation
 -- | A helper class for converting pitches. Used by the `Simple.JSON.WriteForeign` instance of `Pitch`.
 class WriteForeignPitch i where
   -- | Return the `Foreign` representation of a pitch with the given internal interval.

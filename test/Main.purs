@@ -1,7 +1,7 @@
-module Test.Main where
+module Test.Main (main) where
 
-import Data.Pitches
 import Prelude hiding (degree)
+import Data.Pitches
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
@@ -102,9 +102,6 @@ testSICProps =
         $ quickCheck \i -> readJSON_ (writeJSON i) === Just (i :: SIC)
       it "survives a JSON roundtrip (pitches)"
         $ quickCheck \p -> readJSON_ (writeJSON p) === Just (p :: SPC)
-
-showNotation :: forall a. Show a => a -> String
-showNotation = show
 
 main :: Effect Unit
 main = do

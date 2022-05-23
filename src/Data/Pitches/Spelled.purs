@@ -1,5 +1,128 @@
+-- | This module defines pitch and interval types for spelled pitch, i.e. Western notation.
+-- | 
+-- | Spelled pitches and intervals are the standard types of the Western music notation system.
+-- | Unlike MIDI pitches, spelled pitches distinguish between enharmonically equivalent pitches
+-- | such as `E♭` and `D♯`.
+-- | Similarly, spelled intervals distinguish between intervals
+-- | such as `m3` (minor 3rd) and `a2` (augmented second) that are enharmonically equivalent
+-- | (and would be identical in the MIDI system, for example).
+-- |
+-- | ### Notation
+-- |
+-- | Intervals and pitches can be read from string notation using the `parse*` functions
+-- | (`parseSpelled`, `parseSIC`, `parseSpelledP`, and `parseSIC`).
+-- | To convert a pitch or interval into string notation, use `showNotation`.
+-- |
+-- | The notation for spelled interval classes consist of one or more letters
+-- | that indicate the quality of the interval
+-- | and a number between 1 and 7 that indicates the generic interval,
+-- | e.g. `P1` for a perfect unison, `m3` for a minor 3rd, or `aa4` for a double augmented 4th.
+-- |
+-- | ```
+-- | letter quality                  
+-- | ------ -------------------------
+-- | dd...  diminished multiple times
+-- | d      diminished               
+-- | m      minor                    
+-- | P      perfect                  
+-- | M      major                    
+-- | a      augmented                
+-- | aa...  augmented multiple times 
+-- | ```
+-- | 
+-- | Spelled intervals have the same elements as intervals but additionally take a number of octaves,
+-- | written a suffix `:n`, e.g. `P1:0` or `m3:20`.
+-- | By default, intervals are directed upwards. Downwards intervals are indicated by a negative sign,
+-- | e.g. `-M2:1` (a major 9th down).
+-- | For interval classes, downward and upward intervals cannot be distinguish,
+-- | so a downward interval is represented by its complementary upward interval:
+-- | 
+-- | ```purescript
+-- | > parseSIC "-M3"
+-- | (Just m6)
+-- | 
+-- | > down <$> parseSIC "M3"
+-- | (Just m6)
+-- | ```
+-- |
+-- | Pitch classes are written using an upper case letter for the base pitch
+-- | followed by 0 or more accidentals (`#` or `♯` for sharps, `b` or `♭` for flats),
+-- | e.g. `C`, `Eb`/`E♭`, `G###`/`G♯♯♯`.
+-- | Only one type of accidental is allowed per pitch (also don't mix ascii and unicode symbols).
+-- | `showNotation` will use the unicode symbols.
+-- |
+-- | Pitches are written like pitch classes but followed by an integer octave number,
+-- | e.g. `Eb4` or `C#-2`.
+-- | 
+-- | ### Representations of Spelled Intervals
+-- | 
+-- | #### Fifths and Octaves
+-- | 
+-- | Internally, spelled intervals are represented by, 5ths and octaves.
+-- | Both dimensions are logically dependent:
+-- | a major 2nd up is represented by going two 5ths up and one octave down.
+-- | ```purescript
+-- | > spelled 2 (-1) -- two 5ths up, one octave down
+-- | M2:0
+-- | ```
+-- | This representation is convenient for arithmetics, which can usually be done component-wise.
+-- | However, special care needs to be taken when converting to other representations.
+-- | For example, the notated octave number (e.g. `:0` in `M2:0`)
+-- | does *not* correspond to the internal octaves of the interval (-1 in this case).
+-- | In the notation, the interval class (`M2`) and the octave (`:0`) are *independent*.
+-- | 
+-- | Interpreting the "internal" (or dependent) octave dimension of the interval
+-- | does not make much sense without looking at the fifths.
+-- | Therefore, the function `octaves` returns the "external" (or independent) octaves
+-- | as used in the string representation, e.g.
+-- | ```purescript
+-- | > octaves <$> parseSpelled "M2:0"
+-- | (Just 0)
+-- | 
+-- | > octaves <$> parseSpelled "M2:1"
+-- | (Just 1)
+-- | 
+-- | > octaves <$> parseSpelled "M2:-1"
+-- | (Just -1)
+-- | ```
+-- | If you want to look at the internal octaves, use `internalOctaves`
+-- | This corresponds to looking directly at the octaves field in the representation of the interval
+-- | but works on interval classes too (returning 0).
+-- | 
+-- | #### Diatonic Steps and Alterations
+-- | 
+-- | We provide a number of convenience functions to derive other properties from this representation.
+-- | The generic interval (i.e. the number of diatonic steps) can be obtained using `generic`.
+-- | `generic` respects the direction of the interval but is limitied to a single octave (0 to ±6).
+-- | If you need the total number of diatonic steps, including octaves, use `diasteps`.
+-- | The function `degree` returns the scale degree implied by the interval relative to some root.
+-- | Since scale degrees are always above the root, `degree`,
+-- | it treats negative intervals like their positive complements:
+-- | ```purescript
+-- | > generic <$> parseSpelled "-M3:1" -- some kind of 3rd down
+-- | (Just -2)
+-- | 
+-- | > diasteps <$> parseSpelled "-M3:1" -- a 10th down
+-- | (Just -9)
+-- | 
+-- | > degree <$> parseSpelled "-M3:1" -- scale degree VI
+-- | (Just 5)
+-- | ```
+-- | For interval classes, all three functions are equivalent.
+-- | Note that all three measures start counting from 0 (for unison/I), not 1.
+-- | 
+-- | Complementary to the generic interval functions,
+-- | `alteration` returns the specific quality of the interval.
+-- | For perfect or major intervals, it returns `0`.
+-- | Larger absolute intervals return positive values,
+-- | smaller intervals return negative values.
+-- | 
+-- | `degree` and `alteration` also work on pitches.
+-- | `degree p` returns an integer corresponding to the letter (C=`0`, D=`1`, ...),
+-- | while `alteration p` provides the accidentals (natural=`0`, sharps -> positive, flats -> negative).
+-- | For convenience, `letter p` returns the letter of `p` as an uppercase character.
 module Data.Pitches.Spelled
-  ( class Spelled
+  ( class Spelled  -- general interface for spelled types
   , fifths
   , octaves
   , internalOctaves
@@ -7,11 +130,12 @@ module Data.Pitches.Spelled
   , generic
   , diasteps
   , alteration
-  , SInterval(..)
+  , SInterval(..) -- spelled intervals
+  , parseSpelled
   , spelled
-  , wholetone
-  , onlyDia
   , spelledDiaChrom
+  , onlyDia
+  , wholetone
   , second
   , third
   , fourth
@@ -19,7 +143,8 @@ module Data.Pitches.Spelled
   , fifth
   , sixth
   , seventh
-  , SIC(..)
+  , SIC(..) -- spelled interval classes
+  , parseSIC
   , sic
   , second'
   , third'
@@ -28,49 +153,50 @@ module Data.Pitches.Spelled
   , fifth'
   , sixth'
   , seventh'
-  , letter
-  , SPitch
-  , spelledp
-  , SPC
-  , spc
+  , letter -- pitches (general)
   , Accidental
   , flt
-  , shp
   , nat
+  , shp
+  , SPitch -- spelled pitches
+  , parseSpelledP
+  , spelledp
+  , a
+  , b
   , c
   , d
   , e
   , f
   , g
-  , a
-  , b
+  , SPC -- spelled pitch classes
+  , parseSPC
+  , spc
+  , a'
+  , b'
   , c'
   , d'
   , e'
   , f'
   , g'
-  , a'
-  , b'
   ) where
 
 import Prelude hiding (degree)
 import Control.Alt ((<|>))
 import Data.Char (fromCharCode, toCharCode)
 import Data.Either (hush)
-import Data.Group (class Group, ginverse)
-import Data.Group (power) as G
+import Data.Group (class Group)
 import Data.List.NonEmpty (length)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe, fromMaybe)
 import Data.Monoid (power) as M
 import Data.Ord (abs)
-import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IsIntervalClassOf, class ParseNotation, class ParsePitchNotation, class ReadForeignPitch, class ShowPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, toMidi, (+^), (^*), (^-^))
+import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IsIntervalClassOf, class Notation, class NotationPitch, class ReadForeignPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, parseNotation, showNotation, toMidi, (+^), (^*), (^-^))
 import Data.Pitches.Internal (parseInt, parseInt', readJSONviaParse)
 import Data.String as S
 import Simple.JSON (class ReadForeign, class WriteForeign, writeImpl)
-import Test.QuickCheck (class Arbitrary, arbitrary)
 import StringParser (Parser, fail, runParser) as P
-import StringParser.CodePoints (char, oneOf) as P
+import StringParser.CodePoints (char, oneOf, eof) as P
 import StringParser.Combinators (many1, option) as P
+import Test.QuickCheck (class Arbitrary, arbitrary)
 
 -- Spelled Intervals
 -- -----------------
@@ -107,66 +233,117 @@ fifths2degree fifths = (fifths * 4) `mod` 7
 
 -- | A common class for accessor functions of spelled types.
 class Spelled i where
+  -- | Return the position of the interval or pitch on the line of fifths.
   fifths :: i -> Int
+  -- | Return the number of octaves spanned by the interval
+  -- | (upward starting at 0, downward starting at -1).
+  -- | For pitches, return the octave of the pitch.
+  -- | Always `0` for pitch / interval classes.
   octaves :: i -> Int
+  -- | Return the number of octaves in the internal representation.
   internalOctaves :: i -> Int
+  -- | Return the scale degree of the interval or pitch (relative to C).
   degree :: i -> Int
+  -- | Return the generic interval size [-6,6].
+  -- | For pitches, use `degree` instead.
   generic :: i -> Int
+  -- | The number of diatonic steps in the interval (unison=`0`, 2nd=`1`, ..., octave=`7`),
+  -- | respecting direction and octaves.
+  -- | For pitches, use `degree` instead.
   diasteps :: i -> Int
+  -- | Return the number of semitones by which the interval is altered
+  -- | from its the perfect or major variant.
+  -- | Positive alteration always indicates augmentation,
+  -- | negative alteration indicates diminution (minor or smaller) of the interval,
+  -- | regardless of the direction of the interval.
+  -- | For pitches, return the accidentals (positive=sharps, negative=flats, `0`=natural).
   alteration :: i -> Int
 
 ---------------
 -- SInterval --
 ---------------
+-- | A type for representing spelled intervals as a combination of fifths and octaves.
 newtype SInterval
   = SInterval { fifths :: Int, octaves :: Int }
 
+-- constructors for SInterval
+--
+-- | Construct a spelled interval directly from fifths and octaves.
+spelled :: Int -> Int -> SInterval
+spelled fifths octaves = SInterval { fifths, octaves }
+
+-- | Construct a spelled interval by specifying its diatonic and chromatic steps (semitones).
+-- | For example, a major third spans 2 diatonic steps and 4 semitones
+-- | while a minor third also spans 2 diatonic steps but only 3 semitones
+-- | ```purescript
+-- | > spelledDiaChrom 2 4
+-- | M3:0
+-- | > spelledDiaChrom 2 3
+-- | m3:0
+-- | ```
+spelledDiaChrom :: Int -> Int -> SInterval
+spelledDiaChrom dia chrom = diaPart <> chromPart
+  where
+  diaPart = wholetone ^* dia
+
+  chromPart = chromaticSemitone ^* (chrom - 2 * dia)
+
+-- | Construct an interval that goes `n` diatonic steps up
+-- | but is enharmonically equivalent to a unison.
+-- | ```purescript
+-- | > onlyDia 2
+-- | ddd3:0
+-- | ```
+onlyDia :: Int -> SInterval
+onlyDia n = wholetone ^* n ^-^ chromaticSemitone ^* (2 * n)
+
+-- | A version of `parseNotation` specialized to `SInterval`.
+-- | ```purescript
+-- | > parseSpelled "M3:0"
+-- | (Just M3:0)
+-- | ```
+parseSpelled :: String -> Maybe SInterval
+parseSpelled = parseNotation
+
+-- | A major second.
+wholetone :: SInterval
+wholetone = spelled 2 (-1)
+
+-- | A generic second. Use with `major` or `minor` to obtain an interval.
+second :: ImperfectInterval SInterval
+second = Impf (spelled 2 (-1) ^-^ _)
+
+-- | A generic third. Use with `major` or `minor` to obtain an interval.
+third :: ImperfectInterval SInterval
+third = Impf (spelled 4 (-2) ^-^ _)
+
+-- | A perfect fourth.
+fourth :: SInterval
+fourth = spelled (-1) 1
+
+-- | An augmented fourth.
+tritone :: SInterval
+tritone = aug fourth
+
+-- | A perfect fifth.
+fifth :: SInterval
+fifth = spelled 1 0
+
+-- | A generic sixth. Use with `major` or `minor` to obtain an interval.
+sixth :: ImperfectInterval SInterval
+sixth = Impf (spelled 3 (-1) ^-^ _)
+
+-- | A generic seventh. Use with `major` or `minor` to obtain an interval.
+seventh :: ImperfectInterval SInterval
+seventh = Impf (spelled 5 (-2) ^-^ _)
+
+-- instances for SInterval
+--
 derive instance eqSInterval :: Eq SInterval
 
 instance arbitrarySInterval :: Arbitrary SInterval where
   arbitrary = spelled <$> map (_ `mod` 100) arbitrary <*> map (_ `mod` 100) arbitrary
 
--- smart constructors
---
-spelled :: Int -> Int -> SInterval
-spelled fifths octaves = SInterval { fifths, octaves }
-
-wholetone :: SInterval
-wholetone = spelled 2 (-1)
-
-onlyDia :: Int -> SInterval
-onlyDia x = G.power wholetone x <> ginverse (G.power chromaticSemitone (2 * x))
-
-spelledDiaChrom :: Int -> Int -> SInterval
-spelledDiaChrom dia chrom = diaPart <> chromPart
-  where
-  diaPart = wholetone `G.power` dia
-
-  chromPart = chromaticSemitone `G.power` (chrom - 2 * dia)
-
-second :: ImperfectInterval SInterval
-second = Impf (spelled 2 (-1) ^-^ _)
-
-third :: ImperfectInterval SInterval
-third = Impf (spelled 4 (-2) ^-^ _)
-
-fourth :: SInterval
-fourth = spelled (-1) 1
-
-tritone :: SInterval
-tritone = aug fourth
-
-fifth :: SInterval
-fifth = spelled 1 0
-
-sixth :: ImperfectInterval SInterval
-sixth = Impf (spelled 3 (-1) ^-^ _)
-
-seventh :: ImperfectInterval SInterval
-seventh = Impf (spelled 5 (-2) ^-^ _)
-
--- TODO: interval special values (second, third, etc)
---
 instance spelledSInterval :: Spelled SInterval where
   fifths (SInterval i) = i.fifths
   octaves (SInterval i) = i.octaves + ((i.fifths * 4) `div` 7)
@@ -210,26 +387,10 @@ instance tomidiSInterval :: ToMidi SInterval where
   toMidi (SInterval i) = i.fifths * 7 + i.octaves * 12
 
 instance showSInterval :: Show SInterval where
-  show i
-    | direction i == LT = "-" <> show (down i)
-    | otherwise = qual <> dia <> ":" <> octs
-      where
-      deg = degree i
-
-      dia = show $ deg + 1
-
-      alt = alteration i
-
-      qual =
-        if isPerfect deg then
-          qualpf alt "a" "P" "d"
-        else
-          qualimpf alt "a" "M" "m" "d"
-
-      octs = show $ octaves i
+  show = showNotation
 
 instance writeForeignSInterval :: WriteForeign SInterval where
-  writeImpl = writeImpl <<< show
+  writeImpl = writeImpl <<< showNotation
 
 instance readForeignSInterval :: ReadForeign SInterval where
   readImpl = readJSONviaParse "spelled interval"
@@ -237,39 +398,62 @@ instance readForeignSInterval :: ReadForeign SInterval where
 ---------
 -- SIC --
 ---------
+--
+-- | A type for representing spelled interval classes on the line of fifths.
 newtype SIC
   = SIC Int
 
+-- constructors for SIC
+--
+-- | Construct a spelled interval class directly from fifths,
+-- | e.g. `sic (-1) == P4`, `sic 0 == P1`, `sic 1 == P5`, `sic 2 == M2`, ...
+sic :: Int -> SIC
+sic = SIC
+
+-- | A version of `parseNotation` specialized to `SIC`.
+-- | ```purescript
+-- | > parseSIC "M3"
+-- | (Just M3)
+-- | ```
+parseSIC :: String -> Maybe SIC
+parseSIC = parseNotation
+
+-- | A generic second. Use with `major` or `minor` to obtain an interval class.
+second' :: ImperfectInterval SIC
+second' = Impf (sic 2 ^-^ _)
+
+-- | A generic third. Use with `major` or `minor` to obtain an interval class.
+third' :: ImperfectInterval SIC
+third' = Impf (sic 4 ^-^ _)
+
+-- | A perfect fourth.
+fourth' :: SIC
+fourth' = sic (-1)
+
+-- | An augmented fourth.
+tritone' :: SIC
+tritone' = sic 6
+
+-- | A perfect fifth.
+fifth' :: SIC
+fifth' = sic 1
+
+-- | A generic seventh. Use with `major` or `minor` to obtain an interval class.
+sixth' :: ImperfectInterval SIC
+sixth' = Impf (sic 3 ^-^ _)
+
+-- | A generic seventh. Use with `major` or `minor` to obtain an interval class.
+seventh' :: ImperfectInterval SIC
+seventh' = Impf (sic 5 ^-^ _)
+
+-- instances for SIC
+-- 
 derive instance eqSIC :: Eq SIC
 
 derive instance ordSIC :: Ord SIC
 
 instance arbitrarySIC :: Arbitrary SIC where
   arbitrary = SIC <<< (_ `mod` 100) <$> arbitrary
-
-sic :: Int -> SIC
-sic = SIC
-
-second' :: ImperfectInterval SIC
-second' = Impf (sic 2 ^-^ _)
-
-third' :: ImperfectInterval SIC
-third' = Impf (sic 4 ^-^ _)
-
-fourth' :: SIC
-fourth' = sic (-1)
-
-tritone' :: SIC
-tritone' = sic 6
-
-fifth' :: SIC
-fifth' = sic 1
-
-sixth' :: ImperfectInterval SIC
-sixth' = Impf (sic 3 ^-^ _)
-
-seventh' :: ImperfectInterval SIC
-seventh' = Impf (sic 5 ^-^ _)
 
 instance spelledSIC :: Spelled SIC where
   fifths (SIC fs) = fs
@@ -310,20 +494,10 @@ instance tomidiSIC :: ToMidi SIC where
   toMidi (SIC fs) = (fs * 7) `mod` 12
 
 instance showSIC :: Show SIC where
-  show i = qual <> show (dia + 1)
-    where
-    dia = diasteps i
-
-    alt = alteration i
-
-    qual =
-      if isPerfect dia then
-        qualpf alt "a" "P" "d"
-      else
-        qualimpf alt "a" "M" "m" "d"
+  show = showNotation
 
 instance writeForeignSIC :: WriteForeign SIC where
-  writeImpl = writeImpl <<< show
+  writeImpl = writeImpl <<< showNotation
 
 instance readForeignSIC :: ReadForeign SIC where
   readImpl input = readJSONviaParse "spelled interval class" input
@@ -335,67 +509,83 @@ instance spelledPitch :: (Spelled i, HasIntervalClass i ic, Spelled ic) => Spell
   octaves (Pitch i) = octaves i
   internalOctaves (Pitch i) = internalOctaves i
   degree (Pitch i) = degree i
-  generic (Pitch i) = generic i
-  diasteps (Pitch i) = diasteps i
+  generic (Pitch i) = degree i -- not well-defined for pitches
+  diasteps (Pitch i) = degree i -- not well-defined for pitches
   alteration (Pitch i) = alteration $ ic i
 
 asciiA :: Int
 asciiA = toCharCode 'A'
 
+-- | Return the letter of the given pitch.
 letter :: forall i. Spelled i => i -> String
 letter i = S.singleton $ S.codePointFromChar $ fromMaybe 'X' $ fromCharCode $ asciiA + ((degree i + 2) `mod` 7)
 
+-- spelled pitches
+--
+-- | A type alias for spelled pitches.
 type SPitch
   = Pitch SInterval
 
-type SPC
-  = Pitch SIC
-
+-- | Create a spelled pitch directly from internal fifths and octaves.
+-- | Only used this if you know what you are doing.
 spelledp :: Int -> Int -> SPitch
 spelledp fs os = Pitch $ spelled fs os
 
+-- | A version of `parseNotation` specialized to `SPitch`.
+-- | ```purescript
+-- | > parseSpelledP "Eb4"
+-- | (Just E♭4)
+-- | ```
+parseSpelledP :: String -> Maybe SPitch
+parseSpelledP = parseNotation
+
+-- | Represent an accidental as a number of semitones upward.
 newtype Accidental
   = Acc Int
 
+-- | A single flat.
 flt :: Accidental
 flt = Acc (-1)
 
+-- | A single sharp.
 shp :: Accidental
 shp = Acc 1
 
+-- | A natural.
 nat :: Accidental
 nat = Acc 0
 
+-- helper function for creating spelled pitch constructors
 toSpelled :: Int -> Int -> Accidental -> Int -> SPitch
 toSpelled fs os (Acc acc) oct = spelledp fs (os + oct) +^ (chromaticSemitone ^* acc)
 
+-- | Construct a C-like pitch by providing accidentals and an octave.
 c :: Accidental -> Int -> SPitch
 c = toSpelled 0 0
 
+-- | Construct a D-like pitch by providing accidentals and an octave.
 d :: Accidental -> Int -> SPitch
 d = toSpelled 2 (-1)
 
+-- | Construct an E-like pitch by providing accidentals and an octave.
 e :: Accidental -> Int -> SPitch
 e = toSpelled 4 (-2)
 
+-- | Construct an F-like pitch by providing accidentals and an octave.
 f :: Accidental -> Int -> SPitch
 f = toSpelled (-1) 1
 
+-- | Construct a G-like pitch by providing accidentals and an octave.
 g :: Accidental -> Int -> SPitch
 g = toSpelled 1 0
 
+-- | Construct an A-like pitch by providing accidentals and an octave.
 a :: Accidental -> Int -> SPitch
 a = toSpelled 3 (-1)
 
+-- | Construct a B-like pitch by providing accidentals and an octave.
 b :: Accidental -> Int -> SPitch
 b = toSpelled 5 (-2)
-
-instance showpitchSInterval :: ShowPitch SInterval where
-  showPitch i = letter p <> accs <> show (octaves p)
-    where
-    p = Pitch i
-
-    accs = accstr (alteration p) "♯" "♭"
 
 instance writeForeignSPitch :: WriteForeignPitch SInterval where
   writeImplPitch i = writeImpl $ show $ Pitch i
@@ -406,42 +596,58 @@ instance readForeignSPitch :: ReadForeignPitch SInterval where
 instance tomidiSPitch :: ToMidiPitch SInterval where
   toMidiPitch i = toMidi i + 12
 
+-- spelled pitch classes
+--
+-- | A type alias for spelled pitch classes.
+type SPC
+  = Pitch SIC
+
+-- | Create a spelled pitch class directly from fifths.
 spc :: Int -> SPC
 spc fs = Pitch $ sic fs
 
+-- | A version of `parseNotation` specialized to `SPC`.
+-- | ```purescript
+-- | > parseSPC "Eb"
+-- | (Just E♭)
+-- | ```
+parseSPC :: String -> Maybe SPC
+parseSPC = parseNotation
+
+-- helper for creating spelled pitch class constructors
 toSPC :: Int -> Accidental -> SPC
 toSPC fs (Acc acc) = spc fs +^ (chromaticSemitone ^* acc)
 
+-- | Construct a C-like pitch class by providing accidentals.
 c' :: Accidental -> SPC
 c' = toSPC 0
 
+-- | Construct a D-like pitch class by providing accidentals.
 d' :: Accidental -> SPC
 d' = toSPC 2
 
+-- | Construct an E-like pitch class by providing accidentals.
 e' :: Accidental -> SPC
 e' = toSPC 4
 
+-- | Construct an F-like pitch class by providing accidentals.
 f' :: Accidental -> SPC
 f' = toSPC (-1)
 
+-- | Construct a G-like pitch class by providing accidentals.
 g' :: Accidental -> SPC
 g' = toSPC 1
 
+-- | Construct an A-like pitch class by providing accidentals.
 a' :: Accidental -> SPC
 a' = toSPC 3
 
+-- | Construct a B-like pitch class by providing accidentals.
 b' :: Accidental -> SPC
 b' = toSPC 5
 
-instance showpitchSIC :: ShowPitch SIC where
-  showPitch i = letter p <> accs
-    where
-    p = Pitch i
-
-    accs = accstr (alteration p) "♯" "♭"
-
 instance writeForeignSPC :: WriteForeignPitch SIC where
-  writeImplPitch i = writeImpl $ show $ Pitch i
+  writeImplPitch i = writeImpl $ showNotation $ Pitch i
 
 instance readForeignSPC :: ReadForeignPitch SIC where
   readImplPitch input = readJSONviaParse "spelled pitch class" input
@@ -478,7 +684,7 @@ parseDia = do
   alt <- falt $ isPerfect dia
   pure $ ((dia * 2 + 1) `mod` 7) - 1 + (7 * alt)
 
-instance parsenotationSInterval :: ParseNotation SInterval where
+instance notationSInterval :: Notation SInterval where
   parseNotation str = hush $ P.runParser parser str
     where
     parser = do
@@ -486,17 +692,47 @@ instance parsenotationSInterval :: ParseNotation SInterval where
       fs <- parseDia
       _ <- P.char ':'
       os <- parseInt
+      P.eof
       let
         i = SInterval { fifths: fs, octaves: os - ((fs * 4) `div` 7) }
       pure $ if sign == '-' then down i else i
+  showNotation i
+    | direction i == LT = "-" <> show (down i)
+    | otherwise = qual <> dia <> ":" <> octs
+      where
+      deg = degree i
 
-instance parsenotationSIC :: ParseNotation SIC where
+      dia = show $ deg + 1
+
+      alt = alteration i
+
+      qual =
+        if isPerfect deg then
+          qualpf alt "a" "P" "d"
+        else
+          qualimpf alt "a" "M" "m" "d"
+
+      octs = show $ octaves i
+
+instance notationSIC :: Notation SIC where
   parseNotation str = hush $ P.runParser parser str
     where
     parser = do
       sign <- P.option '+' (P.char '-')
       i <- sic <$> parseDia
+      P.eof
       pure $ if sign == '-' then down i else i
+  showNotation i = qual <> show (dia + 1)
+    where
+    dia = diasteps i
+
+    alt = alteration i
+
+    qual =
+      if isPerfect dia then
+        qualpf alt "a" "P" "d"
+      else
+        qualimpf alt "a" "M" "m" "d"
 
 parseAccs :: P.Parser Int
 parseAccs = P.option 0 $ sharps <|> flats
@@ -515,13 +751,29 @@ parseName = do
   acc <- parseAccs
   pure $ ((dia * 2 + 1) `mod` 7) - 1 + 7 * acc
 
-instance parsenotationSPitch :: ParsePitchNotation SInterval where
+instance notationSPitch :: NotationPitch SInterval where
   parsePitchNotation str = hush $ P.runParser parser str
     where
     parser = do
       fs <- parseName
       os <- parseInt
-      pure $ spelledp fs (os - ((fs * 4) `div` 7))
+      P.eof
+      pure $ spelled fs (os - ((fs * 4) `div` 7))
+  showPitchNotation i = letter p <> accs <> show (octaves p)
+    where
+    p = Pitch i
 
-instance parsenotationSPC :: ParsePitchNotation SIC where
-  parsePitchNotation str = hush $ P.runParser (spc <$> parseName) str
+    accs = accstr (alteration p) "♯" "♭"
+
+instance notationSPC :: NotationPitch SIC where
+  parsePitchNotation str = hush $ P.runParser parser str
+    where
+    parser = do
+      fifths <- parseName
+      P.eof
+      pure $ sic fifths
+  showPitchNotation i = letter p <> accs
+    where
+    p = Pitch i
+
+    accs = accstr (alteration p) "♯" "♭"

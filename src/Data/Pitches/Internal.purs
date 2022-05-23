@@ -4,7 +4,7 @@ import Prelude
 import Data.Char as C
 import Data.Foldable (foldl)
 import Data.Maybe (Maybe(..))
-import Data.Pitches.Class (class ParseNotation, parseNotation)
+import Data.Pitches.Class (class Notation, parseNotation)
 import Foreign as F
 import Simple.JSON (readImpl)
 import StringParser (Parser) as P
@@ -30,7 +30,7 @@ parseInt' = do
   dgts <- P.many1 P.anyDigit
   pure $ foldl (\acc d -> 10 * acc + digit d) 0 dgts
 
-readJSONviaParse :: forall a. ParseNotation a => String -> F.Foreign -> F.F a
+readJSONviaParse :: forall a. Notation a => String -> F.Foreign -> F.F a
 readJSONviaParse typ input = do
   str <- readImpl input
   case parseNotation str of
