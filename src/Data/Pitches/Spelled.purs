@@ -200,7 +200,7 @@ import Test.QuickCheck (class Arbitrary, arbitrary)
 
 -- Spelled Intervals
 -- -----------------
--- 
+
 -- helpers
 isPerfect :: Int -> Boolean
 isPerfect = case _ of
@@ -262,11 +262,12 @@ class Spelled i where
 ---------------
 -- SInterval --
 ---------------
+
 -- | A type for representing spelled intervals as a combination of fifths and octaves.
 newtype SInterval = SInterval { fifths :: Int, octaves :: Int }
 
 -- constructors for SInterval
---
+
 -- | Construct a spelled interval directly from fifths and octaves.
 spelled :: Int -> Int -> SInterval
 spelled fifths octaves = SInterval { fifths, octaves }
@@ -337,7 +338,7 @@ seventh :: ImperfectInterval SInterval
 seventh = Impf (spelled 5 (-2) ^-^ _)
 
 -- instances for SInterval
---
+
 derive instance Eq SInterval
 
 instance Arbitrary SInterval where
@@ -397,12 +398,12 @@ instance ReadForeign SInterval where
 ---------
 -- SIC --
 ---------
---
+
 -- | A type for representing spelled interval classes on the line of fifths.
 newtype SIC = SIC Int
 
 -- constructors for SIC
---
+
 -- | Construct a spelled interval class directly from fifths,
 -- | e.g. `sic (-1) == P4`, `sic 0 == P1`, `sic 1 == P5`, `sic 2 == M2`, ...
 sic :: Int -> SIC
@@ -445,7 +446,7 @@ seventh' :: ImperfectInterval SIC
 seventh' = Impf (sic 5 ^-^ _)
 
 -- instances for SIC
--- 
+
 derive instance Eq SIC
 
 derive instance Ord SIC
@@ -505,6 +506,7 @@ instance ReadForeign SIC where
 
 -- spelled pitch
 -- -------------
+
 instance (Spelled i, HasIntervalClass i ic, Spelled ic) => Spelled (Pitch i) where
   fifths (Pitch i) = fifths i
   octaves (Pitch i) = octaves i
@@ -522,7 +524,7 @@ letter :: forall i. Spelled i => i -> String
 letter i = S.singleton $ S.codePointFromChar $ fromMaybe 'X' $ fromCharCode $ asciiA + ((degree i + 2) `mod` 7)
 
 -- spelled pitches
---
+
 -- | A type alias for spelled pitches.
 type SPitch = Pitch SInterval
 
@@ -596,7 +598,7 @@ instance ToMidiPitch SInterval where
   toMidiPitch i = toMidi i + 12
 
 -- spelled pitch classes
---
+
 -- | A type alias for spelled pitch classes.
 type SPC = Pitch SIC
 
