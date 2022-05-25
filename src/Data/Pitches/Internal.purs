@@ -1,4 +1,4 @@
-module Data.Pitches.Internal (parseInt, parseInt', readJSONviaParse) where
+module Data.Pitches.Internal (parseSInt, parseUInt, readJSONviaParse) where
 
 import Prelude
 import Data.Char as C
@@ -17,16 +17,16 @@ ascii0 = C.toCharCode '0'
 digit :: Char -> Int
 digit d = C.toCharCode d - ascii0
 
-parseInt :: P.Parser Int
-parseInt = do
+parseSInt :: P.Parser Int
+parseSInt = do
   signChar <- P.option '+' $ P.char '-'
   let
     sign = if signChar == '-' then -1 else 1
   dgts <- P.many1 P.anyDigit
   pure $ sign * foldl (\acc d -> 10 * acc + digit d) 0 dgts
 
-parseInt' :: P.Parser Int
-parseInt' = do
+parseUInt :: P.Parser Int
+parseUInt = do
   dgts <- P.many1 P.anyDigit
   pure $ foldl (\acc d -> 10 * acc + digit d) 0 dgts
 

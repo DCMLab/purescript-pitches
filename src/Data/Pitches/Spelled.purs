@@ -122,7 +122,7 @@
 -- | while `alteration p` provides the accidentals (natural=`0`, sharps -> positive, flats -> negative).
 -- | For convenience, `letter p` returns the letter of `p` as an uppercase character.
 module Data.Pitches.Spelled
-  ( class Spelled  -- general interface for spelled types
+  ( class Spelled -- general interface for spelled types
   , fifths
   , octaves
   , internalOctaves
@@ -189,8 +189,8 @@ import Data.List.NonEmpty (length)
 import Data.Maybe (Maybe, fromMaybe)
 import Data.Monoid (power) as M
 import Data.Ord (abs)
-import Data.Pitches.Class (class Chromatic, class Diatonic, class HasIntervalClass, class Interval, class IsIntervalClassOf, class Notation, class NotationPitch, class ReadForeignPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, parseNotation, showNotation, toMidi, (+^), (^*), (^-^))
-import Data.Pitches.Internal (parseInt, parseInt', readJSONviaParse)
+import Data.Pitches.Class (class Chromatic, class Diatonic, class HasInterval, class HasIntervalClass, class Interval, class Notation, class NotationPitch, class ReadForeignPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, ImperfectInterval(..), Pitch(..), aug, chromaticSemitone, direction, down, iabs, ic, parseNotation, showNotation, toMidi, (+^), (^*), (^-^))
+import Data.Pitches.Internal (parseSInt, parseUInt, readJSONviaParse)
 import Data.String as S
 import Simple.JSON (class ReadForeign, class WriteForeign, writeImpl)
 import StringParser (Parser, fail, runParser) as P
@@ -263,8 +263,7 @@ class Spelled i where
 -- SInterval --
 ---------------
 -- | A type for representing spelled intervals as a combination of fifths and octaves.
-newtype SInterval
-  = SInterval { fifths :: Int, octaves :: Int }
+newtype SInterval = SInterval { fifths :: Int, octaves :: Int }
 
 -- constructors for SInterval
 --
@@ -339,12 +338,12 @@ seventh = Impf (spelled 5 (-2) ^-^ _)
 
 -- instances for SInterval
 --
-derive instance eqSInterval :: Eq SInterval
+derive instance Eq SInterval
 
-instance arbitrarySInterval :: Arbitrary SInterval where
+instance Arbitrary SInterval where
   arbitrary = spelled <$> map (_ `mod` 100) arbitrary <*> map (_ `mod` 100) arbitrary
 
-instance spelledSInterval :: Spelled SInterval where
+instance Spelled SInterval where
   fifths (SInterval i) = i.fifths
   octaves (SInterval i) = i.octaves + ((i.fifths * 4) `div` 7)
   internalOctaves (SInterval i) = i.octaves
@@ -355,44 +354,44 @@ instance spelledSInterval :: Spelled SInterval where
   diasteps (SInterval i) = i.fifths * 4 + i.octaves * 7
   alteration i = (fifths (iabs i) + 1) `div` 7
 
-instance semigroupSInterval :: Semigroup SInterval where
+instance Semigroup SInterval where
   append (SInterval i1) (SInterval i2) = spelled (i1.fifths + i2.fifths) (i1.octaves + i2.octaves)
 
-instance monoidSInterval :: Monoid SInterval where
+instance Monoid SInterval where
   mempty = spelled 0 0
 
-instance groupSInterval :: Group SInterval where
+instance Group SInterval where
   ginverse (SInterval i) = spelled (-i.fifths) (-i.octaves)
 
-instance ordSInterval :: Ord SInterval where
+instance Ord SInterval where
   compare i1 i2 = compare [ diasteps i1, alteration i1 ] [ diasteps i2, alteration i2 ]
 
-instance intervalSInterval :: Interval SInterval where
+instance Interval SInterval where
   octave = spelled 0 1
   direction i = compare (diasteps i) 0
 
-instance hasintervalclassSInterval :: HasIntervalClass SInterval SIC where
+instance HasIntervalClass SInterval SIC where
   ic (SInterval i) = sic i.fifths
 
-instance intervalclassofSInterval :: IsIntervalClassOf SIC SInterval where
-  emb (SIC fs) = spelled fs (negate $ (fs * 4) `div` 7)
+instance HasInterval SInterval SInterval where
+  emb i = i
 
-instance diatonicSInterval :: Diatonic SInterval where
+instance Diatonic SInterval where
   isStep i = abs (diasteps i) < 2
 
-instance chromaticSInterval :: Chromatic SInterval where
+instance Chromatic SInterval where
   chromaticSemitone = spelled 7 (-4)
 
-instance tomidiSInterval :: ToMidi SInterval where
+instance ToMidi SInterval where
   toMidi (SInterval i) = i.fifths * 7 + i.octaves * 12
 
-instance showSInterval :: Show SInterval where
+instance Show SInterval where
   show = showNotation
 
-instance writeForeignSInterval :: WriteForeign SInterval where
+instance WriteForeign SInterval where
   writeImpl = writeImpl <<< showNotation
 
-instance readForeignSInterval :: ReadForeign SInterval where
+instance ReadForeign SInterval where
   readImpl = readJSONviaParse "spelled interval"
 
 ---------
@@ -400,8 +399,7 @@ instance readForeignSInterval :: ReadForeign SInterval where
 ---------
 --
 -- | A type for representing spelled interval classes on the line of fifths.
-newtype SIC
-  = SIC Int
+newtype SIC = SIC Int
 
 -- constructors for SIC
 --
@@ -448,14 +446,14 @@ seventh' = Impf (sic 5 ^-^ _)
 
 -- instances for SIC
 -- 
-derive instance eqSIC :: Eq SIC
+derive instance Eq SIC
 
-derive instance ordSIC :: Ord SIC
+derive instance Ord SIC
 
-instance arbitrarySIC :: Arbitrary SIC where
+instance Arbitrary SIC where
   arbitrary = SIC <<< (_ `mod` 100) <$> arbitrary
 
-instance spelledSIC :: Spelled SIC where
+instance Spelled SIC where
   fifths (SIC fs) = fs
   octaves _ = 0
   internalOctaves _ = 0
@@ -464,47 +462,50 @@ instance spelledSIC :: Spelled SIC where
   diasteps (SIC fs) = fifths2degree fs
   alteration (SIC fs) = (fs + 1) `div` 7
 
-instance semigroupSIC :: Semigroup SIC where
+instance Semigroup SIC where
   append (SIC i1) (SIC i2) = sic $ i1 + i2
 
-instance monoidSIC :: Monoid SIC where
+instance Monoid SIC where
   mempty = sic 0
 
-instance groupSIC :: Group SIC where
+instance Group SIC where
   ginverse (SIC fs) = sic (-fs)
 
-instance intervalSIC :: Interval SIC where
+instance Interval SIC where
   octave = sic 0
   direction i = if dia == 0 then EQ else if dia < 4 then GT else LT
     where
     dia = diasteps i
 
-instance hasintervalclassSIC :: HasIntervalClass SIC SIC where
+instance HasInterval SIC SInterval where
+  emb (SIC fs) = spelled fs (negate $ (fs * 4) `div` 7)
+
+instance HasIntervalClass SIC SIC where
   ic i = i
 
-instance diatonicSIC :: Diatonic SIC where
+instance Diatonic SIC where
   isStep i = deg == 0 || deg == 1 || deg == 6
     where
     deg = degree i
 
-instance chromaticSIC :: Chromatic SIC where
+instance Chromatic SIC where
   chromaticSemitone = sic 7
 
-instance tomidiSIC :: ToMidi SIC where
+instance ToMidi SIC where
   toMidi (SIC fs) = (fs * 7) `mod` 12
 
-instance showSIC :: Show SIC where
+instance Show SIC where
   show = showNotation
 
-instance writeForeignSIC :: WriteForeign SIC where
+instance WriteForeign SIC where
   writeImpl = writeImpl <<< showNotation
 
-instance readForeignSIC :: ReadForeign SIC where
+instance ReadForeign SIC where
   readImpl input = readJSONviaParse "spelled interval class" input
 
 -- spelled pitch
 -- -------------
-instance spelledPitch :: (Spelled i, HasIntervalClass i ic, Spelled ic) => Spelled (Pitch i) where
+instance (Spelled i, HasIntervalClass i ic, Spelled ic) => Spelled (Pitch i) where
   fifths (Pitch i) = fifths i
   octaves (Pitch i) = octaves i
   internalOctaves (Pitch i) = internalOctaves i
@@ -523,8 +524,7 @@ letter i = S.singleton $ S.codePointFromChar $ fromMaybe 'X' $ fromCharCode $ as
 -- spelled pitches
 --
 -- | A type alias for spelled pitches.
-type SPitch
-  = Pitch SInterval
+type SPitch = Pitch SInterval
 
 -- | Create a spelled pitch directly from internal fifths and octaves.
 -- | Only used this if you know what you are doing.
@@ -540,8 +540,7 @@ parseSpelledP :: String -> Maybe SPitch
 parseSpelledP = parseNotation
 
 -- | Represent an accidental as a number of semitones upward.
-newtype Accidental
-  = Acc Int
+newtype Accidental = Acc Int
 
 -- | A single flat.
 flt :: Accidental
@@ -587,20 +586,19 @@ a = toSpelled 3 (-1)
 b :: Accidental -> Int -> SPitch
 b = toSpelled 5 (-2)
 
-instance writeForeignSPitch :: WriteForeignPitch SInterval where
+instance WriteForeignPitch SInterval where
   writeImplPitch i = writeImpl $ show $ Pitch i
 
-instance readForeignSPitch :: ReadForeignPitch SInterval where
+instance ReadForeignPitch SInterval where
   readImplPitch input = readJSONviaParse "spelled pitch" input
 
-instance tomidiSPitch :: ToMidiPitch SInterval where
+instance ToMidiPitch SInterval where
   toMidiPitch i = toMidi i + 12
 
 -- spelled pitch classes
 --
 -- | A type alias for spelled pitch classes.
-type SPC
-  = Pitch SIC
+type SPC = Pitch SIC
 
 -- | Create a spelled pitch class directly from fifths.
 spc :: Int -> SPC
@@ -646,13 +644,13 @@ a' = toSPC 3
 b' :: Accidental -> SPC
 b' = toSPC 5
 
-instance writeForeignSPC :: WriteForeignPitch SIC where
+instance WriteForeignPitch SIC where
   writeImplPitch i = writeImpl $ showNotation $ Pitch i
 
-instance readForeignSPC :: ReadForeignPitch SIC where
+instance ReadForeignPitch SIC where
   readImplPitch input = readJSONviaParse "spelled pitch class" input
 
-instance tomidiSPC :: ToMidiPitch SIC where
+instance ToMidiPitch SIC where
   toMidiPitch i = toMidi i + 60
 
 -------------
@@ -680,18 +678,18 @@ altQual = do
 parseDia :: P.Parser Int
 parseDia = do
   falt <- altAug <|> altDim <|> altQual
-  dia <- (\x -> x - 1) <$> parseInt'
+  dia <- (\x -> x - 1) <$> parseUInt
   alt <- falt $ isPerfect dia
   pure $ ((dia * 2 + 1) `mod` 7) - 1 + (7 * alt)
 
-instance notationSInterval :: Notation SInterval where
+instance Notation SInterval where
   parseNotation str = hush $ P.runParser parser str
     where
     parser = do
       sign <- P.option '+' $ P.char '-'
       fs <- parseDia
       _ <- P.char ':'
-      os <- parseInt
+      os <- parseSInt
       P.eof
       let
         i = SInterval { fifths: fs, octaves: os - ((fs * 4) `div` 7) }
@@ -699,22 +697,22 @@ instance notationSInterval :: Notation SInterval where
   showNotation i
     | direction i == LT = "-" <> show (down i)
     | otherwise = qual <> dia <> ":" <> octs
-      where
-      deg = degree i
+        where
+        deg = degree i
 
-      dia = show $ deg + 1
+        dia = show $ deg + 1
 
-      alt = alteration i
+        alt = alteration i
 
-      qual =
-        if isPerfect deg then
-          qualpf alt "a" "P" "d"
-        else
-          qualimpf alt "a" "M" "m" "d"
+        qual =
+          if isPerfect deg then
+            qualpf alt "a" "P" "d"
+          else
+            qualimpf alt "a" "M" "m" "d"
 
-      octs = show $ octaves i
+        octs = show $ octaves i
 
-instance notationSIC :: Notation SIC where
+instance Notation SIC where
   parseNotation str = hush $ P.runParser parser str
     where
     parser = do
@@ -751,12 +749,12 @@ parseName = do
   acc <- parseAccs
   pure $ ((dia * 2 + 1) `mod` 7) - 1 + 7 * acc
 
-instance notationSPitch :: NotationPitch SInterval where
+instance NotationPitch SInterval where
   parsePitchNotation str = hush $ P.runParser parser str
     where
     parser = do
       fs <- parseName
-      os <- parseInt
+      os <- parseSInt
       P.eof
       pure $ spelled fs (os - ((fs * 4) `div` 7))
   showPitchNotation i = letter p <> accs <> show (octaves p)
@@ -765,7 +763,7 @@ instance notationSPitch :: NotationPitch SInterval where
 
     accs = accstr (alteration p) "♯" "♭"
 
-instance notationSPC :: NotationPitch SIC where
+instance NotationPitch SIC where
   parsePitchNotation str = hush $ P.runParser parser str
     where
     parser = do

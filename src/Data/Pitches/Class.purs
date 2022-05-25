@@ -30,7 +30,7 @@ module Data.Pitches.Class
   , (^*)
   , timesi
   , (*^)
-  , class IsIntervalClassOf
+  , class HasInterval
   , emb
   , class HasIntervalClass
   , ic
@@ -82,11 +82,14 @@ import Test.QuickCheck (class Arbitrary)
 ---------------
 -- Intervals --
 ---------------
+
 -- | A class for interval types (including "interval class" types).
 -- Arithmetic operations (addition, subtraction, inversion) are provided by implementing `Group`.
 -- On top of that, each interval type must provide an octave interval and a direction.
 class
-  (Group i) <= Interval i where
+  ( Group i
+  ) <=
+  Interval i where
   -- | The perfect octave interval.
   octave :: i
   -- | Return the direction of an interval,
@@ -96,23 +99,35 @@ class
 
 -- | Links an interval class type to the corresponding (non-class) interval type.
 class
-  (Interval i, Interval ic, HasIntervalClass i ic) <= IsIntervalClassOf ic i | i -> ic, ic -> i where
+  ( Interval i
+  , Interval ic
+  ) <=
+  HasInterval ic i
+  | ic -> i where
   -- | Embed an interval class into the first upward octave (e.g. `M3` -> `M3:0`).
   emb :: ic -> i
 
 class
-  (Interval i, Interval ic) <= HasIntervalClass i ic | i -> ic where
+  ( Interval i
+  , Interval ic
+  ) <=
+  HasIntervalClass i ic
+  | i -> ic where
   -- | Project an interval to the corresponding interval class.
   ic :: i -> ic
 
 class
-  (Interval i) <= Diatonic i where
+  ( Interval i
+  ) <=
+  Diatonic i where
   -- | Test whether the interval is within step distance
   -- | (step or smaller, e.g. unisons and seconds).
   isStep :: i -> Boolean
 
 class
-  (Interval i) <= Chromatic i where
+  ( Interval i
+  ) <=
+  Chromatic i where
   -- | The chromatic semitone of the respective type
   -- | (e.g. `a1`/`a1:0` for spelled intervals, `1` for MIDI).
   chromaticSemitone :: i
@@ -139,7 +154,7 @@ unison :: forall i. Interval i => i
 unison = mempty
 
 -- | Embed and interval class into a specific octave (`octs 0 = emb`).
-oct :: forall i ic. IsIntervalClassOf ic i => Int -> ic -> i
+oct :: forall i ic. HasInterval ic i => Int -> ic -> i
 oct octs ic = emb ic <> (octave ^* octs)
 
 -- | Invert the direction of an interval (alias for `ginverse`).
@@ -187,8 +202,7 @@ infixr 7 timesi as *^
 -- | An imperfect interval is represented as a function that takes a (downward) modifier to the major version of the interval.
 -- | To obtain the major version of the interval, pass `unison` (or call `major`);
 -- | to obtain the minor version, pass `chromaticSemitone` (or call `minor`.
-newtype ImperfectInterval i
-  = Impf (i -> i)
+newtype ImperfectInterval i = Impf (i -> i)
 
 -- | Return the minor version of an imperfect interval (e.g. `minor third == m3:0`).
 minor :: forall i. Chromatic i => ImperfectInterval i -> i
@@ -211,22 +225,22 @@ aug = (_ ^+^ chromaticSemitone)
 -------------
 -- Pitches --
 -------------
+
 -- | A generic pitch type.
 -- | Wraps an interval that is interpreted as the interval between the pitch and a reference pitch.
 -- | Normally, this interval is never provided or used directly.
 -- | Instead, different interval types provide smart constructors that generate `Pitch` objects.
-newtype Pitch a
-  = Pitch a
+newtype Pitch a = Pitch a
 
-derive newtype instance eqPitch :: (Eq a) => Eq (Pitch a)
+derive newtype instance (Eq a) => Eq (Pitch a)
 
-derive newtype instance ordPitch :: (Ord a) => Ord (Pitch a)
+derive newtype instance (Ord a) => Ord (Pitch a)
 
-derive newtype instance arbitraryPitch :: (Arbitrary a) => Arbitrary (Pitch a)
+derive newtype instance (Arbitrary a) => Arbitrary (Pitch a)
 
-derive instance functorPitch :: Functor Pitch
+derive instance Functor Pitch
 
-derive instance genericPitch :: Generic (Pitch a) _
+derive instance Generic (Pitch a) _
 
 -- | Convert an interval to a pitch.
 -- | The interpretation of the resulting pitch depends on the type-specific reference point.
@@ -275,6 +289,7 @@ pc = map ic
 
 -- helper classes
 -- --------------
+
 -- | A helper class for pitch notation. Used by the `Notation` instance of `Pitch`.
 class NotationPitch i where
   -- | Parse the string representation of a pitch and return the corresponding internal interval.
@@ -282,10 +297,10 @@ class NotationPitch i where
   -- | Return the string notation of a pitch with the given internal interval.
   showPitchNotation :: i -> String
 
-instance showPitchInst :: NotationPitch i => Show (Pitch i) where
+instance NotationPitch i => Show (Pitch i) where
   show (Pitch i) = showPitchNotation i
 
-instance notationPitch :: NotationPitch i => Notation (Pitch i) where
+instance NotationPitch i => Notation (Pitch i) where
   parseNotation = parsePitchNotation >>> map Pitch
   showNotation (Pitch i) = showPitchNotation i
 
@@ -294,21 +309,22 @@ class ToMidiPitch i where
   -- | Return the midi number of a pitch with the given internal interval.
   toMidiPitch :: i -> Int
 
-instance tomidiPitch :: ToMidiPitch a => ToMidi (Pitch a) where
+instance ToMidiPitch a => ToMidi (Pitch a) where
   toMidi (Pitch i) = toMidiPitch i
 
 -- -- | A helper class for parsing pitches. Used by the `ParseNotation` instance of `Pitch`.
 -- class ParsePitchNotation a where
 --   -- | Parse the string representation of a pitch with the internal interval type `a`.
 --   parsePitchNotation :: String -> Maybe (Pitch a)
--- instance parsenotationPitch :: ParsePitchNotation a => ParseNotation (Pitch a) where
+-- instance ParsePitchNotation a => ParseNotation (Pitch a) where
 --   parseNotation = parsePitchNotation
+
 -- | A helper class for converting pitches. Used by the `Simple.JSON.WriteForeign` instance of `Pitch`.
 class WriteForeignPitch i where
   -- | Return the `Foreign` representation of a pitch with the given internal interval.
   writeImplPitch :: i -> Foreign
 
-instance writeForeignPitch :: (WriteForeignPitch i) => JSON.WriteForeign (Pitch i) where
+instance (WriteForeignPitch i) => JSON.WriteForeign (Pitch i) where
   writeImpl (Pitch i) = writeImplPitch i
 
 -- | A helper class for converting pitches. Used by the `Simple.JSON.ReadForeign` instance of `Pitch`.
@@ -316,5 +332,5 @@ class ReadForeignPitch i where
   -- | Try to read the `Foreign` representation of a pitch with the internal interval type `a`.
   readImplPitch :: Foreign -> F (Pitch i)
 
-instance readForeignPitch :: (ReadForeignPitch i) => JSON.ReadForeign (Pitch i) where
+instance (ReadForeignPitch i) => JSON.ReadForeign (Pitch i) where
   readImpl f = readImplPitch f
