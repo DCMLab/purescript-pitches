@@ -1,11 +1,26 @@
 -- | This module defines intervals and pitches in the 12-tone system as used by the MIDI standard.
+-- | The notation for MIDI pitch and interval types uses the integer representation
+-- | together with a prefix that distinquishes the type of the value:
+-- | ```
+-- | prefix  type          examples
+-- | i       MidiInterval  i13 (m9 up), i-4 (M3 down)
+-- | ic      MidiIC        ic1 (m2 up = M7 down), ic8 (m6 up = M3 down)
+-- | p       MidiPitch     p63 (Eb/D#4)
+-- | pc      MidiPC        pc3 (Eb/D#)
+-- | ```
 module Data.Pitches.Midi
-  ( MidiIC
-  , MidiInterval
+  ( MidiInterval(..)
+  , MidiIC(..)
+  , MidiPitch
+  , MidiPC
   , midi
   , midic
+  , midip
+  , midipc
   , parseMidiInterval
   , parseMidiIC
+  , parseMidiPitch
+  , parseMidiPC
   ) where
 
 import Prelude
@@ -14,14 +29,16 @@ import Data.Either (hush)
 import Data.Group (class Group)
 import Data.Maybe (Maybe)
 import Data.Ord (abs)
-import Data.Pitches.Class (class Chromatic, class Diatonic, class HasInterval, class HasIntervalClass, class Interval, class Notation, class ToMidi, parseNotation, showNotation)
+import Data.Pitches.Class (class Chromatic, class Diatonic, class HasInterval, class HasIntervalClass, class Interval, class Notation, class NotationPitch, class ReadForeignPitch, class ToMidi, class ToMidiPitch, class WriteForeignPitch, Pitch(..), parseNotation, showNotation)
 import Data.Pitches.Internal (parseSInt)
-import Simple.JSON (class ReadForeign, class WriteForeign, readImpl)
+import Simple.JSON (class ReadForeign, class WriteForeign, readImpl, writeImpl)
 import StringParser as P
+import Test.QuickCheck (class Arbitrary, arbitrary)
 
 -- MIDI intervals
 -- --------------
 
+-- | A type for representing MIDI intervals as intergers.
 newtype MidiInterval = MidiInterval Int
 
 -- MIDI interval constructors / accessors
@@ -93,9 +110,13 @@ derive newtype instance WriteForeign MidiInterval
 
 derive newtype instance ReadForeign MidiInterval
 
+instance Arbitrary MidiInterval where
+  arbitrary = MidiInterval <$> arbitrary
+
 -- MIDI interval classes
 -- ---------------------
 
+-- | A type for representing MIDI interval classes as intergers (mod 12).
 newtype MidiIC = MidiIC Int
 
 -- midi interval class constructors accessors
@@ -104,14 +125,14 @@ newtype MidiIC = MidiIC Int
 -- | The input is always taken mod 12.
 -- | ```purescript
 -- | > midic 13 -- minor 9th = minor 2nd
--- | i1
+-- | ic1
 -- | ```
 midic :: Int -> MidiIC
 midic i = MidiIC (i `mod` 12)
 
 -- | A version of `parseNotation` that is specialized to `MidiIC`.
 -- | ```purescript
--- | > parseMidiInterval "ic13" -- minor 9th = minor 2nd
+-- | > parseMidiIC "ic13" -- minor 9th = minor 2nd
 -- | (Just ic1)
 -- | ```
 parseMidiIC :: String -> Maybe MidiIC
@@ -171,6 +192,89 @@ instance ReadForeign MidiIC where
   -- make sure that Int is interpreted mod 12
   readImpl input = midic <$> readImpl input
 
+instance Arbitrary MidiIC where
+  arbitrary = midic <$> arbitrary
+
 -- Midi Pitches and Pitch classes
 -- ------------------------------
 
+-- midi pitches
+
+-- | A type for representing MIDI pitches as intergers.
+type MidiPitch = Pitch MidiInterval
+
+-- | Create a MIDI pitch from an integer.
+-- | ```purescript
+-- | > midip 63 -- Eb/D#4
+-- | p63
+-- | ```
+midip :: Int -> MidiPitch
+midip = Pitch <<< MidiInterval
+
+-- | A version of `parseNotation` that is specialized to `MidiPitch`.
+-- | ```purescript
+-- | > parseMidiPitch "p63" -- Eb/D#4
+-- | (Just p63)
+-- | ```
+parseMidiPitch :: String -> Maybe MidiPitch
+parseMidiPitch = parseNotation
+
+instance NotationPitch MidiInterval where
+  showPitchNotation (MidiInterval i) = "p" <> show i
+  parsePitchNotation str = hush $ P.runParser parser str
+    where
+    parser = do
+      _ <- P.string "p"
+      i <- parseSInt
+      P.eof
+      pure $ midi i
+
+instance ToMidiPitch MidiInterval where
+  toMidiPitch (MidiInterval i) = i
+
+instance WriteForeignPitch MidiInterval where
+  writeImplPitch (MidiInterval i) = writeImpl i
+
+instance ReadForeignPitch MidiInterval where
+  readImplPitch i = Pitch <$> readImpl i
+
+-- midi pitch classes
+
+-- | A type for representing MIDI pitch classes as intergers (mod 12).
+type MidiPC = Pitch MidiIC
+
+-- | Create a MIDI pitch class from an integer.
+-- | The input is always taken mod 12.
+-- | ```purescript
+-- | > midipc 63 -- Eb/D#
+-- | pc3
+-- | ```
+midipc :: Int -> MidiPC
+midipc = Pitch <<< midic
+
+-- | A version of `parseNotation` that is specialized to `MidiPC`.
+-- | ```purescript
+-- | > parseMidiPC "pc63" -- Eb/D#
+-- | (Just pc3)
+-- | ```
+parseMidiPC :: String -> Maybe MidiPC
+parseMidiPC = parseNotation
+
+instance NotationPitch MidiIC where
+  showPitchNotation (MidiIC i) = "pc" <> show i
+  parsePitchNotation str = hush $ P.runParser parser str
+    where
+    parser = do
+      _ <- P.string "pc"
+      i <- parseSInt
+      P.eof
+      pure $ midic i
+
+instance ToMidiPitch MidiIC where
+  toMidiPitch (MidiIC i) = i
+
+instance WriteForeignPitch MidiIC where
+  writeImplPitch (MidiIC i) = writeImpl i
+
+instance ReadForeignPitch MidiIC where
+  readImplPitch i = Pitch <$> readImpl i
