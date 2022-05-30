@@ -1,0 +1,28 @@
+{
+  "name": "purescript-pitches",
+  "version": "1.0.0",
+  "description": "Musical pitch and interval types for purescript",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+      "test": "spago test",
+      "build": "spago build",
+      "docs": "spago docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DCMLab/purescript-pitches.git"
+  },
+  "author": "",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/DCMLab/purescript-pitches/issues"
+  },
+  "homepage": "https://github.com/DCMLab/purescript-pitches#readme",
+  "devDependencies": {
+    "purescript": "^0.15.2",
+    "spago": "^0.20.9"
+  }
+}
