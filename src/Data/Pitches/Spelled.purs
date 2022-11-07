@@ -365,11 +365,15 @@ instance Group SInterval where
   ginverse (SInterval i) = spelled (-i.fifths) (-i.octaves)
 
 instance Ord SInterval where
-  compare i1 i2 = compare [ diasteps i1, alteration i1 ] [ diasteps i2, alteration i2 ]
+  compare i1 i2 = direction (i1 ^-^ i2) -- compare [ diasteps i1, alteration i1 ] [ diasteps i2, alteration i2 ]
 
 instance Interval SInterval where
   octave = spelled 0 1
-  direction i = compare (diasteps i) 0
+  direction i =
+    if dia == 0 then compare ((fifths i + 1) `div` 7) 0
+    else compare dia 0
+    where
+    dia = diasteps i
 
 instance HasIntervalClass SInterval SIC where
   ic (SInterval i) = sic i.fifths
@@ -474,7 +478,10 @@ instance Group SIC where
 
 instance Interval SIC where
   octave = sic 0
-  direction i = if dia == 0 then EQ else if dia < 4 then GT else LT
+  direction i =
+    if dia == 0 then compare ((fifths i + 1) `div` 7) 0
+    else if dia < 4 then GT
+    else LT
     where
     dia = diasteps i
 
